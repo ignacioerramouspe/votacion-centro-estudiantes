@@ -1,0 +1,15 @@
+{
+  "name": "votacion-web-centro-estudiantes",
+  "version": "1.0.0",
+  "description": "Servidor intermedio nativo para conectar la web con Firestore sin bloqueos de red",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "firebase-admin": "^12.0.0"
+  },
+  "author": "Centro de Estudiantes",
+  "license": "ISC"
+}

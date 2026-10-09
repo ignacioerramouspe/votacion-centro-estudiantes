@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Votación Centro de Estudiantes</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f7fa; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background-color: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; box-sizing: border-box; }
+        h2 { color: #2c3e50; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #34495e; }
+        select, input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-blanco { background-color: #bdc3c7; color: #2c3e50; margin-top: 25px; }
+        .hidden { display: none !important; }
+        .info-votante { background-color: #e8f4f8; padding: 15px; border-radius: 6px; margin-bottom: 20px; text-align: left; }
+        .boleta-card { border: 2px solid #ecf0f1; border-radius: 8px; padding: 15px; margin-bottom: 15px; cursor: pointer; background: #fff; }
+        .boleta-card:hover { border-color: #3498db; }
+        .boleta-img { width: 100%; max-width: 180px; height: 130px; object-fit: contain; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="pantalla-login">
+            <h2>🗳️ Votación Web Centro</h2>
+            <div class="form-group">
+                <label>Seleccione la Elección:</label>
+                <select id="select-eleccion"><option>Cargando elecciones móviles...</option></select>
+            </div>
+            <div class="form-group">
+                <label>Ingrese su DNI:</label>
+                <input type="text" id="input-dni" placeholder="Ej: 45000000">
+            </div>
+            <button class="btn-primary" id="btn-ingresar">INGRESAR A VOTAR</button>
+        </div>
+
+        <div id="pantalla-cuarto-oscuro" class="hidden">
+            <h2>Cuarto Oscuro Virtual</h2>
+            <div id="datos-alumno" class="info-votante"></div>
+            <div id="contenedor-boletas"></div>
+            <button class="btn-blanco" id="btn-voto-blanco">VOTO EN BLANCO</button>
+        </div>
+    </div>
+
+    <script>
+        let eleccionesDisponibles = [];
+        let eleccionSeleccionada = "";
+        let datosVotanteActual = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const select = document.getElementById('select-eleccion');
+            const res = await fetch('/api/elecciones');
+            eleccionesDisponibles = await res.json();
+            select.innerHTML = "";
+            eleccionesDisponibles.forEach(e => {
+                let opt = document.createElement('option');
+                opt.value = e.id; opt.innerText = e.id; select.appendChild(opt);
+            });
+        });
+
+        document.getElementById('btn-ingresar').addEventListener('click', async () => {
+            eleccionSeleccionada = document.getElementById('select-eleccion').value;
+            const dni = document.getElementById('input-dni').value.trim();
+            if (!dni) return alert("Ingrese DNI");
+
+            const res = await fetch('/api/ingresar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ dni, eleccionId: eleccionSeleccionada })
+            });
+
+            const data = await res.json();
+            if(!res.ok) return alert(data.error);
+
+            datosVotanteActual = data;
+            abrirCuartoOscuro();
+        });
+
+        async function abrirCuartoOscuro() {
+            document.getElementById('pantalla-login').classList.add('hidden');
+            document.getElementById('pantalla-cuarto-oscuro').classList.remove('hidden');
+            document.getElementById('datos-alumno').innerHTML = `<b>Estudiante:</b> ${datosVotanteActual.nombre}<br><b>DNI:</b> ${datosVotanteActual.dni}`;
+            
+            const res = await fetch(`/api/candidatos/${eleccionSeleccionada}`);
+            const candidatos = await res.json();
+            const contenedor = document.getElementById('contenedor-boletas');
+            contenedor.innerHTML = "";
+
+            candidatos.forEach(cand => {
+                const card = document.createElement('div');
+                card.className = "boleta-card";
+                card.onclick = () => emitirVoto(cand.nombreLista);
+                if(cand.imagenBoleta) {
+                    card.innerHTML += `<img class="boleta-img" src="data:image/png;base64,${cand.imagenBoleta}"><br>`;
+                }
+                card.innerHTML += `<b>${cand.nombreLista}</b>`;
+                contenedor.appendChild(card);
+            });
+        }
+
+        async function emitirVoto(nombreLista) {
+            if(!confirm("¿Confirma su voto?")) return;
+            const res = await fetch('/api/votar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ dni: datosVotanteActual.dni, eleccionId: eleccionSeleccionada, nombreLista })
+            });
+            if(res.ok) { alert("¡Voto registrado!"); location.reload(); }
+        }
+
+        document.getElementById('btn-voto-blanco').addEventListener('click', () => emitirVoto(null));
+    </script>
+</body>
+</html>
